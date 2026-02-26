@@ -1,17 +1,24 @@
 const admin = require('firebase-admin');
 const path = require('path');
+require('dotenv').config();
 
 // Initialize Firebase
 const initializeFirebase = () => {
   try {
-    const serviceAccountPath = path.join(__dirname, '../../service-account-key.json');
-    const serviceAccount = require(serviceAccountPath);
+    // Use environment variable for service account
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (!serviceAccountJson) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set');
+    }
+    
+    const serviceAccount = JSON.parse(serviceAccountJson);
     
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
-      console.log('✅ Firebase initialized successfully');
+      console.log('✅ Firebase initialized successfully using environment variables');
     }
     
     return admin.firestore();
