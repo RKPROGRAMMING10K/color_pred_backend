@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
 const Wallet = require('../models/Wallet');
+const FCMService = require('../services/FCMService');
 
 class TransactionController {
   // Create new transaction (Deposit only)
@@ -33,6 +34,31 @@ class TransactionController {
           status: 'pending'
         }
       });
+
+      // Send notification to admins after response
+      // Get user details for notification
+      try {
+        const userDoc = await require('firebase-admin').firestore()
+          .collection('users')
+          .doc(userId)
+          .get();
+        
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          console.log(`📱 Sending deposit notification to admins for user: ${userData.name}`);
+          
+          const adminNotificationResult = await FCMService.sendNewDepositNotificationToAdmins(
+            amount,
+            userData.name,
+            payment_method,
+            result.transaction_id
+          );
+          
+          console.log(`📱 Admin notification result:`, adminNotificationResult);
+        }
+      } catch (userError) {
+        console.error('❌ Error getting user details for admin notification:', userError);
+      }
 
     } catch (error) {
       console.error('❌ Create transaction error:', error);

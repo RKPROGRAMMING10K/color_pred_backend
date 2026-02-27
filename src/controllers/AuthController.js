@@ -102,7 +102,7 @@ class AuthController {
     try {
       console.log('🔐 Email login request received:', req.body);
       
-      const { email, password, device_info } = req.body;
+      const { email, password, device_info, fcm_token } = req.body;
 
       // Validate input
       if (!email || !password) {
@@ -122,7 +122,7 @@ class AuthController {
         });
       }
 
-      return await AuthController.completeLogin(user, password, device_info, req, res);
+      return await AuthController.completeLogin(user, password, device_info, req, res, fcm_token);
 
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -139,7 +139,7 @@ class AuthController {
     try {
       console.log('📱 Phone login request received:', req.body);
       
-      const { phone, password, device_info } = req.body;
+      const { phone, password, device_info, fcm_token } = req.body;
 
       // Validate input
       if (!phone || !password) {
@@ -162,7 +162,7 @@ class AuthController {
         });
       }
 
-      return await AuthController.completeLogin(user, password, device_info, req, res);
+      return await AuthController.completeLogin(user, password, device_info, req, res, fcm_token);
 
     } catch (error) {
       console.error('❌ Phone login error:', error);
@@ -175,7 +175,7 @@ class AuthController {
   }
 
   // Helper method to complete login process
-  static async completeLogin(user, password, device_info, req, res) {
+  static async completeLogin(user, password, device_info, req, res, fcm_token = null) {
     try {
       // Check if user is active
       if (!user.is_active) {
@@ -217,14 +217,22 @@ class AuthController {
           );
 
           // Update device info and last login
+          const updateData = {
+            device_info: device_info,
+            last_login: require('firebase-admin').firestore.FieldValue.serverTimestamp(),
+            updated_at: require('firebase-admin').firestore.FieldValue.serverTimestamp()
+          };
+
+          // Save FCM token if provided
+          if (fcm_token && fcm_token.trim()) {
+            updateData.fcm_token = fcm_token.trim();
+            console.log('📱 FCM token saved during session update for user:', user.id);
+          }
+
           await require('firebase-admin').firestore()
             .collection('users')
             .doc(user.id)
-            .update({
-              device_info: device_info,
-              last_login: require('firebase-admin').firestore.FieldValue.serverTimestamp(),
-              updated_at: require('firebase-admin').firestore.FieldValue.serverTimestamp()
-            });
+            .update(updateData);
 
           console.log('✅ User session updated successfully:', user.id);
 
@@ -267,16 +275,25 @@ class AuthController {
       const sessionResult = await Session.create(sessionData, device_info);
 
       // Update device info and last login if provided
+      const updateData = {
+        last_login: require('firebase-admin').firestore.FieldValue.serverTimestamp(),
+        updated_at: require('firebase-admin').firestore.FieldValue.serverTimestamp()
+      };
+
       if (device_info) {
-        await require('firebase-admin').firestore()
-          .collection('users')
-          .doc(user.id)
-          .update({
-            device_info: device_info,
-            last_login: require('firebase-admin').firestore.FieldValue.serverTimestamp(),
-            updated_at: require('firebase-admin').firestore.FieldValue.serverTimestamp()
-          });
+        updateData.device_info = device_info;
       }
+
+      // Save FCM token if provided
+      if (fcm_token && fcm_token.trim()) {
+        updateData.fcm_token = fcm_token.trim();
+        console.log('📱 FCM token saved during login for user:', user.id);
+      }
+
+      await require('firebase-admin').firestore()
+        .collection('users')
+        .doc(user.id)
+        .update(updateData);
 
       console.log('✅ User logged in successfully:', user.id);
 

@@ -92,6 +92,131 @@ class FCMService {
       };
     }
   }
+
+  // Get all admin FCM tokens
+  static async getAdminFcmTokens() {
+    try {
+      console.log('🔍 Getting admin FCM tokens');
+      
+      const adminsSnapshot = await admin.firestore()
+        .collection('users')
+        .where('role', '==', 'admin')
+        .where('is_active', '==', true)
+        .get();
+      
+      const adminTokens = [];
+      
+      for (const doc of adminsSnapshot.docs) {
+        const adminData = doc.data();
+        if (adminData.fcm_token) {
+          adminTokens.push({
+            userId: doc.id,
+            fcmToken: adminData.fcm_token,
+            name: adminData.name || 'Admin'
+          });
+        }
+      }
+      
+      console.log(`📱 Found ${adminTokens.length} admin FCM tokens`);
+      return adminTokens;
+      
+    } catch (error) {
+      console.error('❌ Error getting admin FCM tokens:', error);
+      return [];
+    }
+  }
+
+  // Send notification to all admins
+  static async sendNotificationToAdmins(title, body, data = {}) {
+    try {
+      console.log('📱 Sending FCM notification to all admins');
+      
+      const adminTokens = await this.getAdminFcmTokens();
+      
+      if (adminTokens.length === 0) {
+        console.log('❌ No admin FCM tokens found');
+        return { success: false, message: 'No admin FCM tokens found' };
+      }
+      
+      const results = [];
+      
+      for (const admin of adminTokens) {
+        const message = {
+          token: admin.fcmToken,
+          notification: {
+            title: title,
+            body: body,
+            sound: 'default',
+            badge: '1'
+          },
+          data: {
+            type: data.type || 'admin_general',
+            userId: admin.userId,
+            adminName: admin.name,
+            timestamp: new Date().toISOString(),
+            ...data
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              sound: 'default',
+              click_action: 'FLUTTER_NOTIFICATION_CLICK'
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+                contentAvailable: true
+              }
+            }
+          }
+        };
+        
+        try {
+          const response = await admin.messaging().send(message);
+          results.push({
+            success: true,
+            adminId: admin.userId,
+            adminName: admin.name,
+            messageId: response
+          });
+          console.log(`✅ FCM notification sent to admin ${admin.name}:`, response);
+        } catch (error) {
+          results.push({
+            success: false,
+            adminId: admin.userId,
+            adminName: admin.name,
+            error: error.message
+          });
+          console.error(`❌ Error sending FCM to admin ${admin.name}:`, error);
+          
+          // Remove invalid token
+          if (error.code === 'messaging/registration-token-not-registered') {
+            await admin.firestore()
+              .collection('users')
+              .doc(admin.userId)
+              .update({ fcm_token: null });
+          }
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      console.log(`📱 FCM notifications sent to ${successCount}/${adminTokens.length} admins`);
+      
+      return {
+        success: successCount > 0,
+        totalAdmins: adminTokens.length,
+        successfulNotifications: successCount,
+        results: results
+      };
+      
+    } catch (error) {
+      console.error('❌ Error sending FCM to admins:', error);
+      return { success: false, error: error.message };
+    }
+  }
   
   // Send withdrawal status notification
   static async sendWithdrawalStatusNotification(userId, status, amount, transactionId) {
@@ -157,6 +282,36 @@ class FCMService {
       amount: amount.toString(),
       status: status
     });
+  }
+
+  // Send new withdrawal request notification to admins
+  static async sendNewWithdrawalNotificationToAdmins(amount, userName, paymentMethod, transactionId) {
+    return await this.sendNotificationToAdmins(
+      'New Withdrawal Request',
+      `${userName} has requested a withdrawal of ₹${amount} via ${paymentMethod}`,
+      {
+        type: 'new_withdrawal',
+        amount: amount.toString(),
+        userName: userName,
+        paymentMethod: paymentMethod,
+        transactionId: transactionId
+      }
+    );
+  }
+
+  // Send new deposit request notification to admins
+  static async sendNewDepositNotificationToAdmins(amount, userName, paymentMethod, transactionId) {
+    return await this.sendNotificationToAdmins(
+      'New Deposit Request',
+      `${userName} has made a deposit of ₹${amount} via ${paymentMethod}`,
+      {
+        type: 'new_deposit',
+        amount: amount.toString(),
+        userName: userName,
+        paymentMethod: paymentMethod,
+        transactionId: transactionId
+      }
+    );
   }
   
   // Test FCM service

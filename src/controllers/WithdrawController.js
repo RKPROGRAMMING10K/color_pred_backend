@@ -2,6 +2,7 @@ const Transaction = require('../models/Transaction');
 const Wallet = require('../models/Wallet');
 const BankDetails = require('../models/BankDetails');
 const UpiDetails = require('../models/UpiDetails');
+const FCMService = require('../services/FCMService');
 
 class WithdrawController {
   // Create withdrawal request (user provides amount and payment method)
@@ -104,6 +105,17 @@ class WithdrawController {
           user_name: userData.name
         }
       });
+
+      // Send notification to admins after response
+      console.log(`📱 Sending withdrawal notification to admins for user: ${userData.name}`);
+      const adminNotificationResult = await FCMService.sendNewWithdrawalNotificationToAdmins(
+        parseFloat(amount),
+        userData.name,
+        payment_method,
+        result.transaction_id
+      );
+      
+      console.log(`📱 Admin notification result:`, adminNotificationResult);
 
     } catch (error) {
       console.error('❌ Create withdrawal error:', error);
