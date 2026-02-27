@@ -30,9 +30,7 @@ class FCMService {
         token: fcmToken,
         notification: {
           title: title,
-          body: body,
-          sound: 'default',
-          badge: '1'
+          body: body
         },
         data: {
           userId: userId,
