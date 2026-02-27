@@ -340,6 +340,7 @@ class FCMService {
       }
       
       console.log(`📱 Found FCM token for user ${userId}: ${fcmToken.substring(0, 20)}...`);
+      console.log(`🔍 Token length: ${fcmToken.length}, Token type: ${fcmToken.includes('APA91b') ? 'REAL_FCM' : 'TEST_TOKEN'}`);
       
       // For testing, if the token looks like a demo/test token, simulate success
       if (fcmToken.includes('test') || fcmToken.includes('demo') || fcmToken.length < 100) {
