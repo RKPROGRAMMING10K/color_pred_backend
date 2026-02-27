@@ -1,5 +1,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
+const BankDetails = require('../models/BankDetails');
+const UpiDetails = require('../models/UpiDetails');
 
 class AdminController {
   // Get all users with essential information only
@@ -307,6 +309,36 @@ class AdminController {
           console.error('❌ Error fetching user for transaction:', doc.id, userError);
         }
         
+        // Get payment details based on payment method
+        let paymentDetails = {};
+        try {
+          if (transactionData.payment_method === 'Bank Transfer') {
+            const bankDetails = await BankDetails.findByUserId(transactionData.user_id);
+            if (bankDetails) {
+              paymentDetails = {
+                type: 'Bank',
+                bank_name: bankDetails.bank_name,
+                account_holder_name: bankDetails.account_holder_name,
+                account_number: bankDetails.account_number,
+                ifsc_code: bankDetails.ifsc_code,
+                phone_number: bankDetails.phone_number
+              };
+            }
+          } else if (transactionData.payment_method === 'UPI') {
+            const upiDetails = await UpiDetails.findByUserId(transactionData.user_id);
+            if (upiDetails) {
+              paymentDetails = {
+                type: 'UPI',
+                upi_name: upiDetails.upi_name,
+                upi_id: upiDetails.upi_id,
+                phone_number: upiDetails.phone_number
+              };
+            }
+          }
+        } catch (paymentError) {
+          console.error('❌ Error fetching payment details for transaction:', doc.id, paymentError);
+        }
+        
         withdrawals.push({
           id: doc.id,
           transaction_id: transactionData.transaction_id,
@@ -314,7 +346,7 @@ class AdminController {
           user_info: userInfo,
           amount: transactionData.amount,
           payment_method: transactionData.payment_method,
-          payment_details: transactionData.payment_details,
+          payment_details: paymentDetails,
           utr_number: transactionData.utr_number,
           phone_number: transactionData.phone_number,
           status: transactionData.status,
@@ -512,6 +544,36 @@ class AdminController {
         });
       }
       
+      // Get payment details for response
+      let paymentDetails = {};
+      try {
+        if (transactionData.payment_method === 'Bank Transfer') {
+          const bankDetails = await BankDetails.findByUserId(transactionData.user_id);
+          if (bankDetails) {
+            paymentDetails = {
+              type: 'Bank',
+              bank_name: bankDetails.bank_name,
+              account_holder_name: bankDetails.account_holder_name,
+              account_number: bankDetails.account_number,
+              ifsc_code: bankDetails.ifsc_code,
+              phone_number: bankDetails.phone_number
+            };
+          }
+        } else if (transactionData.payment_method === 'UPI') {
+          const upiDetails = await UpiDetails.findByUserId(transactionData.user_id);
+          if (upiDetails) {
+            paymentDetails = {
+              type: 'UPI',
+              upi_name: upiDetails.upi_name,
+              upi_id: upiDetails.upi_id,
+              phone_number: upiDetails.phone_number
+            };
+          }
+        }
+      } catch (paymentError) {
+        console.error('❌ Error fetching payment details for transaction:', transactionId, paymentError);
+      }
+      
       // Update transaction status
       await db.collection('transactions').doc(transactionId).update({
         status: status,
@@ -524,7 +586,10 @@ class AdminController {
         data: {
           transaction_id: transactionId,
           new_status: status,
-          amount: transactionData.amount
+          amount: transactionData.amount,
+          payment_method: transactionData.payment_method,
+          payment_details: paymentDetails,
+          user_id: transactionData.user_id
         }
       });
       
