@@ -2,6 +2,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const BankDetails = require('../models/BankDetails');
 const UpiDetails = require('../models/UpiDetails');
+const FCMService = require('../services/FCMService');
 
 class AdminController {
   // Get all users with essential information only
@@ -497,6 +498,17 @@ class AdminController {
         }
       });
       
+      // Send FCM notification to user after response
+      console.log(`📱 Sending FCM notification to user ${transactionData.user_id} for deposit status: ${status}`);
+      const fcmResult = await FCMService.sendDepositStatusNotification(
+        transactionData.user_id,
+        status,
+        transactionData.amount,
+        transactionId
+      );
+      
+      console.log(`📱 FCM notification result:`, fcmResult);
+      
     } catch (error) {
       console.error('❌ Error updating deposit status:', error);
       res.status(500).json({
@@ -580,6 +592,17 @@ class AdminController {
         updated_at: new Date().toISOString()
       });
       
+      // Send FCM notification to user
+      console.log(`📱 Sending FCM notification to user ${transactionData.user_id} for withdrawal status: ${status}`);
+      const fcmResult = await FCMService.sendWithdrawalStatusNotification(
+        transactionData.user_id,
+        status,
+        transactionData.amount,
+        transactionId
+      );
+      
+      console.log(`📱 FCM notification result:`, fcmResult);
+      
       res.json({
         success: true,
         message: `Withdrawal transaction status updated to ${status}`,
@@ -589,7 +612,8 @@ class AdminController {
           amount: transactionData.amount,
           payment_method: transactionData.payment_method,
           payment_details: paymentDetails,
-          user_id: transactionData.user_id
+          user_id: transactionData.user_id,
+          fcm_notification: fcmResult
         }
       });
       

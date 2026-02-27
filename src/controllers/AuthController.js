@@ -515,6 +515,83 @@ class AuthController {
       });
     }
   }
+
+  // Save FCM Token
+  static async saveFcmToken(req, res) {
+    try {
+      console.log('📱 Saving FCM token for user:', req.user.userId);
+      
+      const userId = req.user.userId;
+      const { fcm_token } = req.body;
+
+      // Validate FCM token
+      if (!fcm_token || fcm_token.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'FCM token is required'
+        });
+      }
+
+      // Update user's FCM token in Firestore
+      const admin = require('firebase-admin');
+      await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .update({
+          fcm_token: fcm_token.trim(),
+          updated_at: new Date().toISOString()
+        });
+
+      console.log(`✅ FCM token saved for user: ${userId}`);
+
+      res.json({
+        success: true,
+        message: 'FCM token saved successfully'
+      });
+
+    } catch (error) {
+      console.error('❌ Save FCM token error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save FCM token',
+        error: error.message
+      });
+    }
+  }
+
+  // Test FCM Notification
+  static async testNotification(req, res) {
+    try {
+      console.log('🧪 Testing FCM notification for user:', req.user.userId);
+      
+      const userId = req.user.userId;
+      const FCMService = require('../services/FCMService');
+
+      const result = await FCMService.testNotification(userId);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: 'Test notification sent successfully',
+          data: result
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Failed to send test notification',
+          error: result.message
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Test notification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send test notification',
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = AuthController;

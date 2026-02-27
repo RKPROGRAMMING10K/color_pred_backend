@@ -37,4 +37,10 @@ router.post('/sessions/check-device', authenticateToken, AuthController.checkDev
 // Logout from specific device (protected)
 router.post('/sessions/logout-device', authenticateToken, AuthController.logoutFromDevice);
 
+// Save FCM Token (protected)
+router.post('/fcm-token', authenticateToken, AuthController.saveFcmToken);
+
+// Test FCM Notification (protected)
+router.post('/test-notification', authenticateToken, AuthController.testNotification);
+
 module.exports = router;
