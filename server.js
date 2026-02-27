@@ -96,12 +96,14 @@ app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/passbook', passbookRoutes);
 
-// Health check endpoints
+// Health check endpoint with FCM status
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     firebase: db ? 'connected' : 'disconnected',
-    timestamp: new Date().toISOString()
+    fcm: 'enabled',
+    timestamp: new Date().toISOString(),
+    version: '2.1.0'
   });
 });
 
