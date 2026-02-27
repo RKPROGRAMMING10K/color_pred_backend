@@ -1,7 +1,7 @@
 {
   "name": "color_backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Color Prediction Backend with FCM Notifications - v2.1",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
