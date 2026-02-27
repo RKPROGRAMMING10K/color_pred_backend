@@ -593,10 +593,17 @@ class AuthController {
           data: result
         });
       } else {
+        // Provide more detailed error information
+        console.log('🔍 Test notification failed:', result);
         res.status(400).json({
           success: false,
           message: 'Failed to send test notification',
-          error: result.message
+          error: result.message,
+          details: {
+            userId: userId,
+            reason: result.message,
+            suggestion: 'Please save an FCM token first using POST /api/auth/fcm-token'
+          }
         });
       }
 
@@ -605,6 +612,53 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Failed to send test notification',
+        error: error.message
+      });
+    }
+  }
+
+  // Debug user FCM status
+  static async debugFcmStatus(req, res) {
+    try {
+      console.log('🔍 Debugging FCM status for user:', req.user.userId);
+      
+      const userId = req.user.userId;
+      const admin = require('firebase-admin');
+      
+      const userDoc = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .get();
+      
+      if (!userDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+      
+      const userData = userDoc.data();
+      
+      res.json({
+        success: true,
+        data: {
+          userId: userId,
+          email: userData.email,
+          role: userData.role,
+          is_active: userData.is_active,
+          has_fcm_token: !!userData.fcm_token,
+          fcm_token_length: userData.fcm_token ? userData.fcm_token.length : 0,
+          fcm_token_preview: userData.fcm_token ? userData.fcm_token.substring(0, 20) + '...' : null,
+          last_login: userData.last_login,
+          updated_at: userData.updated_at
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Debug FCM status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to debug FCM status',
         error: error.message
       });
     }

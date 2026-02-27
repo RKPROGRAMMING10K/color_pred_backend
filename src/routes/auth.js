@@ -43,4 +43,7 @@ router.post('/fcm-token', authenticateToken, AuthController.saveFcmToken);
 // Test FCM Notification (protected)
 router.post('/test-notification', authenticateToken, AuthController.testNotification);
 
+// Debug FCM Status (protected)
+router.get('/debug-fcm', authenticateToken, AuthController.debugFcmStatus);
+
 module.exports = router;
