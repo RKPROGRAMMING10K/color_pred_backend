@@ -8,8 +8,8 @@ const router = express.Router();
 router.use(requestLogger);
 
 // Withdrawal Routes (all protected)
-router.post('/request', authenticateToken, WithdrawController.createWithdrawal);
-router.get('/list', authenticateToken, WithdrawController.getWithdrawals);
-router.get('/details/:transaction_id', authenticateToken, WithdrawController.getWithdrawalDetails);
+router.post('/create', authenticateToken, WithdrawController.createWithdrawal);
+router.get('/', authenticateToken, WithdrawController.getWithdrawals);
+router.get('/:transaction_id', authenticateToken, WithdrawController.getWithdrawalDetails);
 
 module.exports = router;
