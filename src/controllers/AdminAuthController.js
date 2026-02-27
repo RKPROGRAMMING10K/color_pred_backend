@@ -295,16 +295,87 @@ class AdminAuthController {
     try {
       console.log('🚪 Admin logout');
       
-      // For JWT tokens, logout is handled client-side
-      // by removing the token from storage
+      const { session_id, logout_all } = req.body;
+      const adminId = req.admin ? req.admin.id : null;
+      
+      // If admin ID is available from JWT middleware, try to destroy sessions
+      if (adminId) {
+        try {
+          const Session = require('../models/Session');
+          
+          if (logout_all) {
+            // Destroy all admin sessions
+            await Session.destroyAllForUser(adminId);
+            console.log('✅ Admin logged out from all devices:', adminId);
+          } else if (session_id) {
+            // Destroy specific session
+            const session = await Session.findById(session_id);
+            if (session && session.user_id === adminId) {
+              await Session.destroy(session_id);
+              console.log('✅ Admin session destroyed:', session_id);
+            }
+          }
+          
+          // Optionally clear FCM token on logout
+          // await admin.firestore().collection('users').doc(adminId).update({ fcm_token: null });
+          
+        } catch (sessionError) {
+          console.log('ℹ️ Session cleanup failed (may not use sessions):', sessionError.message);
+        }
+      }
       
       res.json({
         success: true,
-        message: 'Admin logout successful'
+        message: 'Admin logout successful',
+        data: {
+          admin_id: adminId,
+          logout_timestamp: new Date().toISOString(),
+          sessions_cleared: !!adminId
+        }
       });
       
     } catch (error) {
       console.error('❌ Admin logout error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  // Admin logout from all devices
+  static async adminLogoutAll(req, res) {
+    try {
+      console.log('🚪 Admin logout from all devices');
+      
+      const adminId = req.admin ? req.admin.id : null;
+      
+      if (adminId) {
+        try {
+          const Session = require('../models/Session');
+          await Session.destroyAllForUser(adminId);
+          
+          // Optionally clear FCM token
+          // await admin.firestore().collection('users').doc(adminId).update({ fcm_token: null });
+          
+          console.log('✅ Admin logged out from all devices:', adminId);
+        } catch (sessionError) {
+          console.log('ℹ️ Session cleanup failed:', sessionError.message);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: 'Admin logged out from all devices successfully',
+        data: {
+          admin_id: adminId,
+          logout_timestamp: new Date().toISOString()
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Admin logout all error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',

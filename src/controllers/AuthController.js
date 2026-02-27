@@ -380,11 +380,22 @@ class AuthController {
       // Destroy the session
       await Session.destroy(session_id);
 
-      console.log('✅ User logged out successfully:', req.user.userId);
+      // Optionally clear FCM token on logout (uncomment if needed)
+      // await require('firebase-admin').firestore()
+      //   .collection('users')
+      //   .doc(req.user.userId)
+      //   .update({ fcm_token: null });
+
+      console.log('✅ User logged out successfully:', req.user.userId, 'Session:', session_id);
 
       res.json({
         success: true,
-        message: 'Logout successful'
+        message: 'Logout successful',
+        data: {
+          session_id: session_id,
+          user_id: req.user.userId,
+          logout_timestamp: new Date().toISOString()
+        }
       });
 
     } catch (error) {
@@ -405,11 +416,21 @@ class AuthController {
       // Destroy all sessions for the user
       await Session.destroyAllForUser(userId);
 
+      // Optionally clear FCM token on logout (uncomment if needed)
+      // await require('firebase-admin').firestore()
+      //   .collection('users')
+      //   .doc(userId)
+      //   .update({ fcm_token: null });
+
       console.log('✅ User logged out from all devices:', userId);
 
       res.json({
         success: true,
-        message: 'Logged out from all devices successfully'
+        message: 'Logged out from all devices successfully',
+        data: {
+          user_id: userId,
+          logout_timestamp: new Date().toISOString()
+        }
       });
 
     } catch (error) {
