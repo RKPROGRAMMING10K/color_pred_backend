@@ -64,6 +64,8 @@ class WithdrawController {
       };
 
       const result = await Transaction.create(userId, transactionData);
+      
+      console.log('🔍 Transaction creation result:', result);
 
       // Get user details for response
       const userDoc = await require('firebase-admin').firestore()

@@ -54,8 +54,12 @@ class Transaction {
   // Create new transaction
   static async create(userId, transactionData) {
     try {
+      console.log('🔍 Creating transaction with data:', { userId, transactionData });
+      
       // Validate input data
       const validation = this.validateTransactionData(transactionData);
+      console.log('🔍 Transaction validation result:', validation);
+      
       if (!validation.isValid) {
         throw new Error(validation.errors.join(', '));
       }
@@ -69,9 +73,11 @@ class Transaction {
         particular: transactionData.particular
       });
 
+      console.log('🔍 Transaction object created:', transaction.toFirestore());
+
       const docRef = await getDb().collection('transactions').add(transaction.toFirestore());
       
-      console.log('✅ Transaction created:', transaction.transaction_id, 'for user:', userId);
+      console.log('✅ Transaction created:', transaction.transaction_id, 'for user:', userId, 'with doc ID:', docRef.id);
       return {
         success: true,
         transaction_id: transaction.transaction_id,
@@ -79,6 +85,7 @@ class Transaction {
         message: 'Transaction created successfully'
       };
     } catch (error) {
+      console.error('❌ Transaction creation error:', error);
       throw new Error(`Failed to create transaction: ${error.message}`);
     }
   }
@@ -166,9 +173,9 @@ class Transaction {
       errors.push('Payment method is required');
     } else {
       // Allow different payment methods for deposits vs withdrawals
-      const validPaymentMethods = ['UPI-QR', 'PaytmX QR', 'Bank Transfer', 'UPI Transfer'];
+      const validPaymentMethods = ['UPI-QR', 'PaytmX QR', 'Bank Transfer', 'UPI Transfer', 'UPI'];
       if (!validPaymentMethods.includes(transactionData.payment_method)) {
-        errors.push('Payment method must be UPI-QR, PaytmX QR, Bank Transfer, or UPI Transfer');
+        errors.push('Payment method must be UPI-QR, PaytmX QR, Bank Transfer, UPI Transfer, or UPI');
       }
     }
     
