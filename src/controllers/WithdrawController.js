@@ -4,13 +4,13 @@ const BankDetails = require('../models/BankDetails');
 const UpiDetails = require('../models/UpiDetails');
 
 class WithdrawController {
-  // Create withdrawal request (user only provides amount)
+  // Create withdrawal request (user provides amount and payment method)
   static async createWithdrawal(req, res) {
     try {
       console.log('💸 Create withdrawal request received:', req.body);
       
       const userId = req.user.userId;
-      const { amount } = req.body;
+      const { amount, payment_method } = req.body;
 
       // Validate amount
       if (!amount || parseFloat(amount) <= 0) {
@@ -20,32 +20,42 @@ class WithdrawController {
         });
       }
 
-      // Get user's payment details (bank or UPI)
-      let paymentDetails = null;
-      let paymentMethod = '';
+      // Validate payment method
+      if (!payment_method || (payment_method !== 'Bank Transfer' && payment_method !== 'UPI')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment method must be either "Bank Transfer" or "UPI"'
+        });
+      }
 
-      // Try to get bank details first
-      const bankDetails = await BankDetails.findByUserId(userId);
-      if (bankDetails) {
-        paymentDetails = bankDetails;
-        paymentMethod = 'Bank Transfer';
-      } else {
-        // Try to get UPI details
-        const upiDetails = await UpiDetails.findByUserId(userId);
-        if (upiDetails) {
-          paymentDetails = upiDetails;
-          paymentMethod = 'UPI Transfer';
-        } else {
+      // Get user's payment details based on payment method
+      let paymentDetails = null;
+
+      if (payment_method === 'Bank Transfer') {
+        // Get bank details
+        const bankDetails = await BankDetails.findByUserId(userId);
+        if (!bankDetails) {
           return res.status(400).json({
             success: false,
-            message: 'No payment details found. Please add bank or UPI details first.'
+            message: 'No bank details found. Please add bank details first.'
           });
         }
+        paymentDetails = bankDetails;
+      } else if (payment_method === 'UPI') {
+        // Get UPI details
+        const upiDetails = await UpiDetails.findByUserId(userId);
+        if (!upiDetails) {
+          return res.status(400).json({
+            success: false,
+            message: 'No UPI details found. Please add UPI details first.'
+          });
+        }
+        paymentDetails = upiDetails;
       }
 
       // Create withdrawal transaction
       const transactionData = {
-        payment_method: paymentMethod,
+        payment_method: payment_method,
         amount: parseFloat(amount),
         utr_number: 'AUTO-' + Date.now(), // Auto-generated for withdrawals
         phone_number: paymentDetails.phone_number || 'AUTO',
@@ -59,27 +69,37 @@ class WithdrawController {
         .collection('users').doc(userId).get();
       const userData = userDoc.data();
 
+      // Prepare payment details response based on method
+      let paymentDetailsResponse = {};
+      
+      if (payment_method === 'Bank Transfer') {
+        paymentDetailsResponse = {
+          type: 'Bank',
+          bank_name: paymentDetails.bank_name,
+          account_holder_name: paymentDetails.account_holder_name,
+          account_number: paymentDetails.account_number,
+          ifsc_code: paymentDetails.ifsc_code,
+          phone_number: paymentDetails.phone_number
+        };
+      } else if (payment_method === 'UPI') {
+        paymentDetailsResponse = {
+          type: 'UPI',
+          upi_name: paymentDetails.upi_name,
+          upi_id: paymentDetails.upi_id,
+          phone_number: paymentDetails.phone_number
+        };
+      }
+
       res.status(201).json({
         success: true,
         message: 'Withdrawal request created successfully',
         data: {
           transaction_id: result.transaction_id,
           status: 'pending',
-          payment_method: paymentMethod,
+          payment_method: payment_method,
           amount: parseFloat(amount),
           particular: 'Withdraw',
-          payment_details: {
-            type: bankDetails ? 'Bank' : 'UPI',
-            details: bankDetails ? {
-              bank_name: bankDetails.bank_name,
-              account_holder_name: bankDetails.account_holder_name,
-              masked_account_number: bankDetails.masked_account_number,
-              ifsc_code: bankDetails.ifsc_code
-            } : {
-              upi_name: upiDetails.upi_name,
-              upi_id: upiDetails.upi_id
-            }
-          },
+          payment_details: paymentDetailsResponse,
           created_at: new Date().toISOString(),
           user_name: userData.name
         }
@@ -106,10 +126,44 @@ class WithdrawController {
       const transactions = await Transaction.findByUserId(userId, parseInt(limit));
       const withdrawals = transactions.filter(tx => tx.particular === 'Withdraw');
 
+      // Enhance withdrawals with payment details
+      const enhancedWithdrawals = await Promise.all(withdrawals.map(async (withdrawal) => {
+        let paymentDetails = {};
+        
+        if (withdrawal.payment_method === 'Bank Transfer') {
+          const bankDetails = await BankDetails.findByUserId(userId);
+          if (bankDetails) {
+            paymentDetails = {
+              type: 'Bank',
+              bank_name: bankDetails.bank_name,
+              account_holder_name: bankDetails.account_holder_name,
+              account_number: bankDetails.account_number,
+              ifsc_code: bankDetails.ifsc_code,
+              phone_number: bankDetails.phone_number
+            };
+          }
+        } else if (withdrawal.payment_method === 'UPI') {
+          const upiDetails = await UpiDetails.findByUserId(userId);
+          if (upiDetails) {
+            paymentDetails = {
+              type: 'UPI',
+              upi_name: upiDetails.upi_name,
+              upi_id: upiDetails.upi_id,
+              phone_number: upiDetails.phone_number
+            };
+          }
+        }
+
+        return {
+          ...withdrawal,
+          payment_details: paymentDetails
+        };
+      }));
+
       res.json({
         success: true,
-        data: withdrawals,
-        count: withdrawals.length
+        data: enhancedWithdrawals,
+        count: enhancedWithdrawals.length
       });
 
     } catch (error) {
