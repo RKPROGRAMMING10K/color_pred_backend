@@ -74,26 +74,12 @@ router.post('/apk-result/:game_type', async (req, res) => {
         game_type,
         period_id: historyItem.period_id,
         number: historyItem.number,
-        color: historyItem.color,
-        result: historyItem.result,
+        color: historyItem.color, // Store exactly as APK sends
+        result: historyItem.result, // Store exactly as APK sends
         big_small: historyItem.big_small || GameHistory.getBigSmallFromNumber(historyItem.number),
         timestamp: historyItem.timestamp || new Date().toISOString(),
         is_completed: historyItem.is_completed !== false
       };
-
-      // Normalize result to lowercase for consistency
-      gameData.result = gameData.result.toLowerCase();
-      
-      // Convert color name to hex if needed
-      const colorNameToHex = {
-        'red': '#EF4444',
-        'green': '#10B981',
-        'violet': '#8B5CF6'
-      };
-      
-      if (colorNameToHex[gameData.color.toLowerCase()]) {
-        gameData.color = colorNameToHex[gameData.color.toLowerCase()];
-      }
 
       // Save to database
       const result = await GameHistory.createGamePeriod(gameData);

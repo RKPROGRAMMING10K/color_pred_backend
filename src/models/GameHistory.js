@@ -45,29 +45,7 @@ class GameHistory {
         throw new Error('Missing required fields: period_id, number, color, result, big_small');
       }
 
-      // Validate result matches color (handle both hex and text colors)
-      const validResults = {
-        'green': '#10B981',
-        'red': '#EF4444',
-        'violet': '#8B5CF6'
-      };
-
-      const normalizedResult = result.toLowerCase();
-      const normalizedColor = color.toLowerCase();
-      
-      // Accept both hex codes and color names
-      const expectedHex = validResults[normalizedResult];
-      const expectedText = normalizedResult;
-      
-      if (expectedHex && expectedHex !== normalizedColor && expectedText !== normalizedColor) {
-        // If color doesn't match expected hex or text, use the correct hex
-        if (normalizedColor === 'red' || normalizedColor === 'green' || normalizedColor === 'violet') {
-          // Color name provided, use correct hex
-          color = validResults[normalizedResult];
-        } else if (normalizedColor !== expectedHex) {
-          throw new Error(`Color mismatch for result ${result}. Expected ${expectedHex} or ${expectedText}, got ${color}`);
-        }
-      }
+      // No color validation - store whatever APK sends
 
       // Check if period already exists
       const existingPeriod = await db
