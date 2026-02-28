@@ -83,9 +83,62 @@ const validateRequest = (schema) => {
   };
 };
 
+// Admin Role Check Middleware
+const requireAdmin = async (req, res, next) => {
+  try {
+    // First authenticate the token
+    await authenticateToken(req, res, async () => {
+      // Check if user has admin role
+      const admin = require('firebase-admin');
+      const userDoc = await admin.firestore()
+        .collection('users')
+        .doc(req.user.userId)
+        .get();
+
+      if (!userDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const userData = userDoc.data();
+
+      // Check if user has admin role
+      if (userData.role !== 'admin') {
+        console.log('❌ Access denied for non-admin user:', req.user.userId);
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Admin privileges required.'
+        });
+      }
+
+      // Check if user is active
+      if (userData.is_active === false) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is deactivated. Contact administrator.'
+        });
+      }
+
+      console.log('✅ Admin access granted for user:', req.user.userId);
+      req.admin = userData; // Add admin info to request
+      next();
+    });
+  } catch (error) {
+    console.error('❌ Admin middleware error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   authenticateToken,
   requestLogger,
   errorHandler,
-  validateRequest
+  validateRequest,
+  requireAdmin
 };
