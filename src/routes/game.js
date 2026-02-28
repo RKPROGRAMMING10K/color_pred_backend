@@ -29,10 +29,10 @@ router.post('/simulate/:game_type', GameController.simulateGameResult);
 // Test endpoint to simulate APK sending game result
 router.post('/apk-result/:game_type', async (req, res) => {
   try {
-    console.log('📱 Simulating APK game result');
+    console.log('📱 APK sending game history data');
     
     const { game_type } = req.params;
-    const { number, period_id } = req.body;
+    const { event, data } = req.body;
     
     // Validate game type
     const validGameTypes = ['30sec', '1min', '3min', '5min'];
@@ -43,54 +43,73 @@ router.post('/apk-result/:game_type', async (req, res) => {
       });
     }
 
-    // Validate number
-    if (typeof number !== 'number' || number < 0 || number > 9) {
+    // Validate required fields
+    if (!event || !data || !data.history || !Array.isArray(data.history)) {
       return res.status(400).json({
         success: false,
-        message: 'Number must be between 0 and 9'
+        message: 'Missing required fields: event, data.history'
       });
     }
 
-    // Use provided period_id or generate one
-    const finalPeriodId = period_id || require('../models/GameHistory').generatePeriodId(game_type);
-
-    // Get result and color from number
     const GameHistory = require('../models/GameHistory');
-    const resultData = GameHistory.getResultFromNumber(number);
+    let storedResults = [];
 
-    // Create game period data (as if coming from APK)
-    const gameData = {
-      game_type,
-      period_id: finalPeriodId,
-      number,
-      color: resultData.color,
-      result: resultData.result,
-      big_small: resultData.big_small,
-      timestamp: new Date().toISOString(),
-      is_completed: true
-    };
+    // Process each history item
+    for (const historyItem of data.history) {
+      // Validate history item
+      if (!historyItem.period_id || !historyItem.result || !historyItem.number || !historyItem.color) {
+        console.log('⚠️ Skipping invalid history item:', historyItem);
+        continue;
+      }
 
-    // Save to database (this is what the APK would trigger)
-    const result = await GameHistory.createGamePeriod(gameData);
+      // Check if period already exists
+      const existingPeriod = await GameHistory.getPeriod(game_type, historyItem.period_id);
+      if (existingPeriod) {
+        console.log(`⚠️ Period ${historyItem.period_id} already exists, skipping`);
+        continue;
+      }
 
-    // Broadcast update to SSE clients (real-time updates)
-    if (req.gameHistorySSE) {
-      await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, result.data);
+      // Create game period data
+      const gameData = {
+        game_type,
+        period_id: historyItem.period_id,
+        number: historyItem.number,
+        color: historyItem.color,
+        result: historyItem.result,
+        big_small: historyItem.big_small || GameHistory.getBigSmallFromNumber(historyItem.number),
+        timestamp: historyItem.timestamp || new Date().toISOString(),
+        is_completed: historyItem.is_completed !== false
+      };
+
+      // Save to database
+      const result = await GameHistory.createGamePeriod(gameData);
+      storedResults.push(result.data);
+      
+      console.log(`📱 Stored: ${game_type} - ${historyItem.period_id} - ${historyItem.result} (${historyItem.number})`);
     }
 
-    console.log(`📱 APK result stored: ${game_type} - ${finalPeriodId} - ${resultData.result} (${number})`);
+    // Broadcast update to SSE clients
+    if (req.gameHistorySSE && storedResults.length > 0) {
+      // Get updated history and broadcast
+      const updatedHistory = await GameHistory.getGameHistory(game_type, 100);
+      await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, updatedHistory.data);
+    }
 
     res.json({
       success: true,
-      message: 'APK game result stored successfully',
-      data: result.data
+      message: `APK game history processed successfully. Stored ${storedResults.length} periods.`,
+      data: {
+        game_type,
+        stored_count: storedResults.length,
+        periods: storedResults
+      }
     });
 
   } catch (error) {
-    console.error('❌ APK result error:', error);
+    console.error('❌ APK game history error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to store APK game result',
+      message: 'Failed to process APK game history',
       error: error.message
     });
   }

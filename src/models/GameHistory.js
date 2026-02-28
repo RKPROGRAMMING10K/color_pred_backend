@@ -397,6 +397,54 @@ class GameHistory {
       throw new Error(`Invalid number: ${number}. Must be between 0 and 9.`);
     }
   }
+
+  // Get big_small based on number
+  static getBigSmallFromNumber(number) {
+    if (number >= 0 && number <= 4) {
+      return 'small';
+    } else if (number >= 5 && number <= 9) {
+      return 'big';
+    } else {
+      throw new Error(`Invalid number: ${number}. Must be between 0 and 9.`);
+    }
+  }
+
+  // Get specific period
+  static async getPeriod(game_type, period_id) {
+    try {
+      const validGameTypes = ['30sec', '1min', '3min', '5min'];
+      if (!validGameTypes.includes(game_type)) {
+        throw new Error(`Invalid game_type: ${game_type}`);
+      }
+
+      const periodRef = db
+        .collection('game_history')
+        .doc(game_type)
+        .collection('periods')
+        .doc(period_id);
+
+      const doc = await periodRef.get();
+      
+      if (!doc.exists) {
+        return null;
+      }
+
+      const period = doc.data();
+      return {
+        period_id: period.period_id,
+        result: period.result,
+        number: period.number,
+        color: period.color,
+        big_small: period.big_small,
+        timestamp: period.timestamp,
+        is_completed: period.is_completed || true
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting period:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = GameHistory;
