@@ -45,15 +45,16 @@ class GameHistory {
         throw new Error('Missing required fields: period_id, number, color, result, big_small');
       }
 
-      // Validate result matches color
+      // Validate result matches color (case-insensitive)
       const validResults = {
         'green': '#10B981',
         'red': '#EF4444',
         'violet': '#8B5CF6'
       };
 
-      if (validResults[result] !== color) {
-        throw new Error(`Color mismatch for result ${result}. Expected ${validResults[result]}, got ${color}`);
+      const normalizedResult = result.toLowerCase();
+      if (validResults[normalizedResult] && validResults[normalizedResult] !== color) {
+        throw new Error(`Color mismatch for result ${result}. Expected ${validResults[normalizedResult]}, got ${color}`);
       }
 
       // Check if period already exists

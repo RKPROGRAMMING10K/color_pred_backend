@@ -81,6 +81,9 @@ router.post('/apk-result/:game_type', async (req, res) => {
         is_completed: historyItem.is_completed !== false
       };
 
+      // Normalize result to lowercase for consistency
+      gameData.result = gameData.result.toLowerCase();
+
       // Save to database
       const result = await GameHistory.createGamePeriod(gameData);
       storedResults.push(result.data);
