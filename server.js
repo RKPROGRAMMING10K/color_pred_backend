@@ -1,5 +1,4 @@
 const express = require('express');
-// const WebSocket = require('ws');
 const path = require('path');
 
 // Import Firebase config
@@ -13,9 +12,13 @@ const withdrawRoutes = require('./src/routes/withdraw');
 const adminRoutes = require('./src/routes/admin');
 const adminAuthRoutes = require('./src/routes/adminAuth');
 const passbookRoutes = require('./src/routes/passbook');
+const gameRoutes = require('./src/routes/game');
 
 // Import middleware
 const { requestLogger, errorHandler } = require('./src/middleware/auth');
+
+// Import WebSocket
+const GameHistoryWebSocket = require('./src/websocket/GameHistoryWebSocket');
 
 const app = express();
 const PORT = process.env.PORT || 4001;
@@ -95,6 +98,7 @@ app.use('/api/withdraw', withdrawRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/passbook', passbookRoutes);
+app.use('/api/game', gameRoutes);
 
 // Health check endpoint with FCM status
 app.get('/health', (req, res) => {
@@ -114,6 +118,12 @@ app.get('/firebase-status', (req, res) => {
   });
 });
 
+// Middleware to pass WebSocket instance to controllers
+app.use((req, res, next) => {
+  req.gameHistoryWS = gameHistoryWS;
+  next();
+});
+
 // Error handling middleware
 app.use(errorHandler);
 
@@ -129,12 +139,23 @@ process.on('uncaughtException', (error) => {
   // Don't exit the process, just log the error
 });
 
+// Initialize WebSocket server
+let gameHistoryWS;
+try {
+  gameHistoryWS = new GameHistoryWebSocket();
+  console.log('🎮 Game History WebSocket initialized');
+} catch (error) {
+  console.error('❌ Failed to initialize WebSocket:', error);
+  gameHistoryWS = null;
+}
+
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`🚀 Express server running on port ${PORT}`);
-  console.log(`🔌 WebSocket server disabled for testing`);
+  console.log(`🎮 WebSocket server running on port ${process.env.WS_PORT || 8080}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔥 Firebase status: http://localhost:${PORT}/firebase-status`);
+  console.log(`🎮 Game API: http://localhost:${PORT}/api/game`);
   console.log(` Auth endpoints: http://localhost:${PORT}/api/auth`);
 });
 
