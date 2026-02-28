@@ -298,21 +298,21 @@ class AdminAuthController {
       const { session_id, logout_all } = req.body;
       const adminId = req.admin ? req.admin.id : null;
       
-      // If admin ID is available from JWT middleware, try to destroy sessions
+      // If admin ID is available from JWT middleware, try to delete sessions
       if (adminId) {
         try {
           const Session = require('../models/Session');
           
           if (logout_all) {
-            // Destroy all admin sessions
+            // Delete all admin sessions
             await Session.destroyAllForUser(adminId);
-            console.log('✅ Admin logged out from all devices:', adminId);
+            console.log('✅ All admin sessions deleted:', adminId);
           } else if (session_id) {
-            // Destroy specific session
+            // Delete specific session
             const session = await Session.findById(session_id);
             if (session && session.user_id === adminId) {
               await Session.destroy(session_id);
-              console.log('✅ Admin session destroyed:', session_id);
+              console.log('✅ Admin session deleted:', session_id);
             }
           }
           
@@ -330,7 +330,8 @@ class AdminAuthController {
         data: {
           admin_id: adminId,
           logout_timestamp: new Date().toISOString(),
-          sessions_cleared: !!adminId
+          sessions_deleted: !!adminId,
+          action: logout_all ? 'all_sessions_deleted' : 'logout_successful'
         }
       });
       
@@ -359,7 +360,7 @@ class AdminAuthController {
           // Optionally clear FCM token
           // await admin.firestore().collection('users').doc(adminId).update({ fcm_token: null });
           
-          console.log('✅ Admin logged out from all devices:', adminId);
+          console.log('✅ All admin sessions deleted:', adminId);
         } catch (sessionError) {
           console.log('ℹ️ Session cleanup failed:', sessionError.message);
         }
@@ -370,7 +371,8 @@ class AdminAuthController {
         message: 'Admin logged out from all devices successfully',
         data: {
           admin_id: adminId,
-          logout_timestamp: new Date().toISOString()
+          logout_timestamp: new Date().toISOString(),
+          action: 'all_sessions_deleted'
         }
       });
       

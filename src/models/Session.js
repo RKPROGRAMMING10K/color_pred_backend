@@ -130,63 +130,71 @@ class Session {
     }
   }
 
-  // Destroy session (logout)
+  // Destroy session (logout) - completely delete the session document
   static async destroy(sessionId) {
     try {
       const sessionRef = db.collection('sessions').doc(sessionId);
-      await sessionRef.update({
-        is_active: false,
-        logout_timestamp: new Date().toISOString(),
-        updated_at: admin.firestore.FieldValue.serverTimestamp()
-      });
       
-      console.log('🗑️ Session destroyed:', sessionId);
+      // Check if session exists before deleting
+      const sessionDoc = await sessionRef.get();
+      if (!sessionDoc.exists) {
+        console.log('⚠️ Session not found for deletion:', sessionId);
+        return true; // Consider it successful if session doesn't exist
+      }
+      
+      // Completely delete the session document
+      await sessionRef.delete();
+      
+      console.log('🗑️ Session document deleted:', sessionId);
       return true;
     } catch (error) {
-      throw new Error(`Failed to destroy session: ${error.message}`);
+      throw new Error(`Failed to delete session: ${error.message}`);
     }
   }
 
-  // Destroy all sessions for a user
+  // Destroy all sessions for a user - completely delete all session documents
   static async destroyAllForUser(userId) {
     try {
       const snapshot = await db.collection('sessions')
         .where('user_id', '==', userId)
-        .where('is_active', '==', true)
-        .get();
+        .get(); // Get all sessions, not just active ones
+
+      if (snapshot.empty) {
+        console.log(`ℹ️ No sessions found for user: ${userId}`);
+        return true;
+      }
 
       const batch = db.batch();
       snapshot.forEach(doc => {
-        batch.update(doc.ref, {
-          is_active: false,
-          logout_timestamp: new Date().toISOString(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp()
-        });
+        batch.delete(doc.ref); // Delete the entire document
       });
 
       await batch.commit();
-      console.log(`🗑️ All sessions destroyed for user: ${userId}`);
+      console.log(`🗑️ All session documents deleted for user: ${userId} (${snapshot.size} sessions)`);
       return true;
     } catch (error) {
-      throw new Error(`Failed to destroy all sessions for user: ${error.message}`);
+      throw new Error(`Failed to delete all sessions for user: ${error.message}`);
     }
   }
 
-  // Get active sessions for user
+  // Get active sessions for user (all existing sessions since we delete on logout)
   static async getActiveSessionsForUser(userId) {
     try {
-      // Simple query without ordering to avoid index issues
+      // Get all sessions for the user (since we delete on logout, all existing sessions are active)
       const snapshot = await db.collection('sessions')
         .where('user_id', '==', userId)
-        .where('is_active', '==', true)
         .get();
 
       const sessions = [];
       snapshot.forEach(doc => {
-        sessions.push({
-          session_id: doc.id,
-          ...doc.data()
-        });
+        const sessionData = doc.data();
+        // Only include sessions that are not expired
+        if (!sessionData.expires_at || new Date(sessionData.expires_at) >= new Date()) {
+          sessions.push({
+            session_id: doc.id,
+            ...sessionData
+          });
+        }
       });
 
       // Sort in memory by last_activity (most recent first)
@@ -198,7 +206,7 @@ class Session {
 
       return sessions;
     } catch (error) {
-      throw new Error(`Failed to get active sessions: ${error.message}`);
+      throw new Error(`Failed to get active sessions for user: ${error.message}`);
     }
   }
 

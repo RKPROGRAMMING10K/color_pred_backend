@@ -377,7 +377,7 @@ class AuthController {
         });
       }
 
-      // Destroy the session
+      // Delete the session document completely
       await Session.destroy(session_id);
 
       // Optionally clear FCM token on logout (uncomment if needed)
@@ -386,15 +386,16 @@ class AuthController {
       //   .doc(req.user.userId)
       //   .update({ fcm_token: null });
 
-      console.log('✅ User logged out successfully:', req.user.userId, 'Session:', session_id);
+      console.log('✅ User session deleted successfully:', req.user.userId, 'Session:', session_id);
 
       res.json({
         success: true,
-        message: 'Logout successful',
+        message: 'Session deleted successfully',
         data: {
           session_id: session_id,
           user_id: req.user.userId,
-          logout_timestamp: new Date().toISOString()
+          logout_timestamp: new Date().toISOString(),
+          action: 'session_deleted'
         }
       });
 
@@ -413,7 +414,7 @@ class AuthController {
     try {
       const userId = req.user.userId;
       
-      // Destroy all sessions for the user
+      // Delete all session documents for the user
       await Session.destroyAllForUser(userId);
 
       // Optionally clear FCM token on logout (uncomment if needed)
@@ -422,14 +423,15 @@ class AuthController {
       //   .doc(userId)
       //   .update({ fcm_token: null });
 
-      console.log('✅ User logged out from all devices:', userId);
+      console.log('✅ All user sessions deleted successfully:', userId);
 
       res.json({
         success: true,
-        message: 'Logged out from all devices successfully',
+        message: 'All sessions deleted successfully',
         data: {
           user_id: userId,
-          logout_timestamp: new Date().toISOString()
+          logout_timestamp: new Date().toISOString(),
+          action: 'all_sessions_deleted'
         }
       });
 
