@@ -57,6 +57,11 @@ class GameController {
         await req.gameHistoryWS.broadcastGameHistoryUpdate(game_type, result.data);
       }
 
+      // Broadcast update to SSE clients
+      if (req.gameHistorySSE) {
+        await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, result.data);
+      }
+
       res.status(201).json({
         success: true,
         message: 'Game period created successfully',
@@ -188,6 +193,13 @@ class GameController {
         await req.gameHistoryWS.broadcastGameHistoryUpdate(game_type, updatedHistory.data.history[0]);
       }
 
+      // Broadcast update to SSE clients
+      if (req.gameHistorySSE) {
+        // Get updated history and broadcast
+        const updatedHistory = await GameHistory.getGameHistory(game_type, 100);
+        await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, updatedHistory.data.history[0]);
+      }
+
       res.json({
         success: true,
         message: 'Game period updated successfully',
@@ -228,6 +240,13 @@ class GameController {
         // Get updated history and broadcast
         const updatedHistory = await GameHistory.getGameHistory(game_type, 100);
         await req.gameHistoryWS.broadcastGameHistoryUpdate(game_type, null);
+      }
+
+      // Broadcast update to SSE clients
+      if (req.gameHistorySSE) {
+        // Get updated history and broadcast
+        const updatedHistory = await GameHistory.getGameHistory(game_type, 100);
+        await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, null);
       }
 
       res.json({

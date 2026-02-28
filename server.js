@@ -17,8 +17,9 @@ const gameRoutes = require('./src/routes/game');
 // Import middleware
 const { requestLogger, errorHandler } = require('./src/middleware/auth');
 
-// Import WebSocket
+// Import WebSocket (for local development) and SSE (for Render)
 const GameHistoryWebSocket = require('./src/websocket/GameHistoryWebSocket');
+const GameHistorySSE = require('./src/websocket/GameHistorySSE');
 
 const app = express();
 const PORT = process.env.PORT || 4001;
@@ -118,9 +119,10 @@ app.get('/firebase-status', (req, res) => {
   });
 });
 
-// Middleware to pass WebSocket instance to controllers
+// Middleware to pass WebSocket/SSE instance to controllers
 app.use((req, res, next) => {
   req.gameHistoryWS = gameHistoryWS;
+  req.gameHistorySSE = gameHistorySSE;
   next();
 });
 
@@ -139,20 +141,43 @@ process.on('uncaughtException', (error) => {
   // Don't exit the process, just log the error
 });
 
-// Initialize WebSocket server
-let gameHistoryWS;
-try {
-  gameHistoryWS = new GameHistoryWebSocket();
-  console.log('🎮 Game History WebSocket initialized');
-} catch (error) {
-  console.error('❌ Failed to initialize WebSocket:', error);
-  gameHistoryWS = null;
+// Initialize WebSocket/SSE based on environment
+let gameHistoryWS = null;
+let gameHistorySSE = null;
+
+// Check if running on Render (production)
+const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID;
+
+if (isRender) {
+  // Use SSE for Render compatibility
+  try {
+    gameHistorySSE = new GameHistorySSE();
+    gameHistorySSE.addSSEEndpoint(app);
+    console.log('🌊 Game History SSE initialized for Render');
+  } catch (error) {
+    console.error('❌ Failed to initialize SSE:', error);
+  }
+} else {
+  // Use WebSocket for local development
+  try {
+    gameHistoryWS = new GameHistoryWebSocket();
+    console.log('🎮 Game History WebSocket initialized for local development');
+  } catch (error) {
+    console.error('❌ Failed to initialize WebSocket:', error);
+  }
 }
 
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`🚀 Express server running on port ${PORT}`);
-  console.log(`🎮 WebSocket server running on port ${process.env.WS_PORT || 8080}`);
+  
+  if (isRender) {
+    console.log(`🌊 SSE endpoints: https://your-app.onrender.com/api/game/sse/:game_type`);
+    console.log(`📊 SSE status: https://your-app.onrender.com/api/game/sse-status`);
+  } else {
+    console.log(`🎮 WebSocket server running on port ${process.env.WS_PORT || 8080}`);
+  }
+  
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔥 Firebase status: http://localhost:${PORT}/firebase-status`);
   console.log(`🎮 Game API: http://localhost:${PORT}/api/game`);
