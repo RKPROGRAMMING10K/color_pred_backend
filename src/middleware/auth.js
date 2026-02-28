@@ -86,47 +86,81 @@ const validateRequest = (schema) => {
 // Admin Role Check Middleware
 const requireAdmin = async (req, res, next) => {
   try {
-    // First authenticate the token
-    await authenticateToken(req, res, async () => {
-      // Check if user has admin role
-      const admin = require('firebase-admin');
-      const userDoc = await admin.firestore()
-        .collection('users')
-        .doc(req.user.userId)
-        .get();
+    // First check if user is authenticated
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-      if (!userDoc.exists) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token required'
+      });
+    }
 
-      const userData = userDoc.data();
+    // Verify JWT token
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    
+    // Check if user has an active session
+    const Session = require('../models/Session');
+    const activeSessions = await Session.getActiveSessionsForUser(decoded.userId);
+    
+    if (activeSessions.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired. Please login again.'
+      });
+    }
 
-      // Check if user has admin role
-      if (userData.role !== 'admin') {
-        console.log('❌ Access denied for non-admin user:', req.user.userId);
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Admin privileges required.'
-        });
-      }
+    // Update last activity for the session
+    await Session.updateActivity(activeSessions[0].session_id);
 
-      // Check if user is active
-      if (userData.is_active === false) {
-        return res.status(403).json({
-          success: false,
-          message: 'Account is deactivated. Contact administrator.'
-        });
-      }
+    // Check if user has admin role
+    const admin = require('firebase-admin');
+    const userDoc = await admin.firestore()
+      .collection('users')
+      .doc(decoded.userId)
+      .get();
 
-      console.log('✅ Admin access granted for user:', req.user.userId);
-      req.admin = userData; // Add admin info to request
-      next();
-    });
+    if (!userDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const userData = userDoc.data();
+
+    // Check if user has admin role
+    if (userData.role !== 'admin') {
+      console.log('❌ Access denied for non-admin user:', decoded.userId);
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Check if user is active
+    if (userData.is_active === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is deactivated. Contact administrator.'
+      });
+    }
+
+    console.log('✅ Admin access granted for user:', decoded.userId);
+    req.user = decoded;
+    req.admin = userData; // Add admin info to request
+    next();
+    
   } catch (error) {
     console.error('❌ Admin middleware error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

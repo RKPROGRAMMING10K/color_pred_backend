@@ -17,11 +17,11 @@ router.get('/current/:game_type', GameController.getCurrentPeriod);
 router.get('/statistics/all', GameController.getAllGameStatistics);
 
 // Protected routes (authentication required)
-router.post('/period', GameController.createGamePeriod);
+router.post('/period', authenticateToken, GameController.createGamePeriod);
 
 // Admin only routes
-router.put('/period/:game_type/:period_id', requireAdmin, GameController.updateGamePeriod);
-router.delete('/period/:game_type/:period_id', requireAdmin, GameController.deleteGamePeriod);
+router.put('/period/:game_type/:period_id', authenticateToken, requireAdmin, GameController.updateGamePeriod);
+router.delete('/period/:game_type/:period_id', authenticateToken, requireAdmin, GameController.deleteGamePeriod);
 
 // Testing routes (remove in production)
 router.post('/simulate/:game_type', GameController.simulateGameResult);
