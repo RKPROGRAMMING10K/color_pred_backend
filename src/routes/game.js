@@ -83,6 +83,17 @@ router.post('/apk-result/:game_type', async (req, res) => {
 
       // Normalize result to lowercase for consistency
       gameData.result = gameData.result.toLowerCase();
+      
+      // Convert color name to hex if needed
+      const colorNameToHex = {
+        'red': '#EF4444',
+        'green': '#10B981',
+        'violet': '#8B5CF6'
+      };
+      
+      if (colorNameToHex[gameData.color.toLowerCase()]) {
+        gameData.color = colorNameToHex[gameData.color.toLowerCase()];
+      }
 
       // Save to database
       const result = await GameHistory.createGamePeriod(gameData);
