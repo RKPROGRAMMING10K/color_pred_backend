@@ -289,6 +289,70 @@ class GameController {
     }
   }
 
+  // Get all game history across all game types
+  static async getAllGameHistory(req, res) {
+    try {
+      console.log('📊 Getting all game history');
+      
+      const validGameTypes = ['30sec', '1min', '3min', '5min'];
+      const allHistory = [];
+
+      // Fetch history from all game types
+      for (const gameType of validGameTypes) {
+        try {
+          const historyRef = db
+            .collection('game_history')
+            .doc(gameType)
+            .collection('periods')
+            .orderBy('timestamp', 'desc')
+            .limit(100); // Limit per game type
+
+          const snapshot = await historyRef.get();
+          
+          snapshot.forEach(doc => {
+            const period = doc.data();
+            allHistory.push({
+              period_id: period.period_id,
+              number: period.number,
+              color: period.color,
+              big_small: period.big_small,
+              game_type: gameType,
+              timestamp: period.timestamp,
+              is_completed: period.is_completed || true
+            });
+          });
+        } catch (error) {
+          console.log(`⚠️ No history found for ${gameType}`);
+        }
+      }
+
+      // Sort all history by timestamp (most recent first)
+      allHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // Limit total results
+      const limit = parseInt(req.query.limit) || 200;
+      const limitedHistory = allHistory.slice(0, limit);
+
+      res.json({
+        success: true,
+        message: 'All game history retrieved successfully',
+        data: {
+          history: limitedHistory,
+          total_records: limitedHistory.length,
+          game_types: validGameTypes
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Get all game history error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get all game history',
+        error: error.message
+      });
+    }
+  }
+
   // Get current period info
   static async getCurrentPeriod(req, res) {
     try {

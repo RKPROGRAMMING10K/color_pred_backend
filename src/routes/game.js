@@ -15,6 +15,7 @@ router.get('/history/:game_type', GameController.getGameHistory);
 router.get('/latest/:game_type', GameController.getLatestPeriod);
 router.get('/current/:game_type', GameController.getCurrentPeriod);
 router.get('/statistics/all', GameController.getAllGameStatistics);
+router.get('/history/all', GameController.getAllGameHistory);
 
 // Protected routes (authentication required)
 router.post('/period', authenticateToken, GameController.createGamePeriod);
