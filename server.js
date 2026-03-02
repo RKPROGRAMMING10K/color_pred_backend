@@ -14,6 +14,7 @@ const adminAuthRoutes = require('./src/routes/adminAuth');
 const passbookRoutes = require('./src/routes/passbook');
 const gameRoutes = require('./src/routes/game');
 const betRoutes = require('./src/routes/bet');
+const userProfileRoutes = require('./src/routes/userProfile');
 
 // Import middleware
 const { requestLogger, errorHandler } = require('./src/middleware/auth');
@@ -102,6 +103,7 @@ app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/passbook', passbookRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/bet', betRoutes);
+app.use('/api/user', userProfileRoutes);
 
 // Health check endpoint with FCM status
 app.get('/health', (req, res) => {
@@ -111,6 +113,7 @@ app.get('/health', (req, res) => {
     fcm: 'enabled',
     betting: 'enabled',
     game_history: 'enabled',
+    user_profile: 'enabled',
     timestamp: new Date().toISOString(),
     version: '2.1.0'
   });
