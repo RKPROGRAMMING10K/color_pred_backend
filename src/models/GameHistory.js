@@ -82,6 +82,9 @@ class GameHistory {
 
       console.log(`✅ Game period created: ${game_type} - ${period_id} - ${result} (${number})`);
 
+      // Auto-cleanup: Keep only latest 50 records (delete oldest 10 when reaching 60)
+      await this.cleanupOldRecords(game_type);
+
       return {
         success: true,
         data: {
@@ -434,6 +437,49 @@ class GameHistory {
     } catch (error) {
       console.error('❌ Error getting period:', error);
       throw error;
+    }
+  }
+
+  // Auto-cleanup: Keep only latest 50 records, delete oldest 10 when reaching 60
+  static async cleanupOldRecords(game_type) {
+    try {
+      console.log(`🧹 Checking cleanup for ${game_type}...`);
+
+      // Get all records ordered by timestamp (oldest first)
+      const allRecordsRef = db
+        .collection('game_history')
+        .doc(game_type)
+        .collection('periods')
+        .orderBy('timestamp', 'asc'); // Oldest first
+
+      const snapshot = await allRecordsRef.get();
+      const totalRecords = snapshot.size;
+
+      console.log(`📊 ${game_type}: Current records = ${totalRecords}`);
+
+      // If we have more than 60 records, delete the oldest ones to keep only 50
+      if (totalRecords > 60) {
+        const recordsToDelete = totalRecords - 50; // Delete oldest records to keep 50
+        console.log(`🗑️ ${game_type}: Deleting ${recordsToDelete} oldest records to maintain 50 latest`);
+
+        // Get the oldest records to delete
+        const oldestRecords = snapshot.docs.slice(0, recordsToDelete);
+        
+        // Delete in batches
+        const batch = db.batch();
+        oldestRecords.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+        console.log(`✅ ${game_type}: Cleanup completed. Deleted ${recordsToDelete} records, kept 50 latest`);
+      } else {
+        console.log(`✅ ${game_type}: No cleanup needed. Current: ${totalRecords}, Limit: 60`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Error during cleanup for ${game_type}:`, error);
+      // Don't throw error - cleanup failure shouldn't break the main functionality
     }
   }
 }

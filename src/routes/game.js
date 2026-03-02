@@ -96,6 +96,9 @@ router.post('/apk-result/:game_type', async (req, res) => {
       await req.gameHistorySSE.broadcastGameHistoryUpdate(game_type, updatedHistory.data);
     }
 
+    // Auto-cleanup for this game type
+    await GameHistory.cleanupOldRecords(game_type);
+
     res.json({
       success: true,
       message: `APK game history processed successfully. Stored ${storedResults.length} periods.`,
