@@ -8,11 +8,14 @@ const { initializeFirebase } = require('./src/config/firebase');
 const authRoutes = require('./src/routes/auth');
 const paymentRoutes = require('./src/routes/payment');
 const transactionRoutes = require('./src/routes/transaction');
+const gameRoutes = require('./src/routes/game');
+const betRoutes = require('./src/routes/bet');
+const userProfileRoutes = require('./src/routes/userProfile');
+const advancedBetRoutes = require('./src/routes/advancedBet');
 const withdrawRoutes = require('./src/routes/withdraw');
 const adminRoutes = require('./src/routes/admin');
 const adminAuthRoutes = require('./src/routes/adminAuth');
 const passbookRoutes = require('./src/routes/passbook');
-const gameRoutes = require('./src/routes/game');
 
 // Import middleware
 const { requestLogger, errorHandler } = require('./src/middleware/auth');
@@ -96,10 +99,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/transaction', transactionRoutes);
 app.use('/api/withdraw', withdrawRoutes);
-app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/passbook', passbookRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/bet', betRoutes);
+app.use('/api/user', userProfileRoutes);
+app.use('/api/advanced-bet', advancedBetRoutes);
 
 // Health check endpoint with FCM status
 app.get('/health', (req, res) => {
@@ -107,6 +113,10 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     firebase: db ? 'connected' : 'disconnected',
     fcm: 'enabled',
+    betting: 'enabled',
+    game_history: 'enabled',
+    user_profile: 'enabled',
+    advanced_betting: 'enabled',
     timestamp: new Date().toISOString(),
     version: '2.1.0'
   });
